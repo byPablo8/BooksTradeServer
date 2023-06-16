@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const mysql = require('mysql');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
 const app = express();
 const accessTokenSecret = 'mySuperSecretKey123!';
@@ -99,6 +100,8 @@ app.post('/login', (req, res) => {
     });
 });
 
+
+
 //Ver libros de usuario
 app.get('/api/usuario/:id/libros', (req, res) => {
     const userId = req.params.id;
@@ -145,6 +148,32 @@ app.delete('/api/usuario/:userId/libros/:libroId', (req, res) => {
                 res.status(404).send({ message: 'Libro no encontrado' });
             }
         }
+    });
+});
+
+app.get('/api/usuarios', (req, res) => {
+    // Aquí necesitas obtener el token del header de la petición
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token == null) {
+        return res.sendStatus(401); // Si no hay token, envía un error 401 (Unauthorized)
+    }
+
+    jwt.verify(token, accessTokenSecret, (err, user) => {
+        if (err) {
+            return res.sendStatus(403); // Si el token es inválido, envía un error 403 (Forbidden)
+        }
+
+        const sql = 'SELECT usuario_id, nombre, apellido, correo_electronico, usuario FROM Usuarios WHERE usuario_id != ?';
+        db.query(sql, user.id, (error, results) => {
+            if (error) {
+                console.error('Error fetching users:', error);
+                res.status(500).json({ error: 'Error fetching users' });
+            } else {
+                res.json(results);
+            }
+        });
     });
 });
 
