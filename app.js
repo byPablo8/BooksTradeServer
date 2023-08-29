@@ -177,6 +177,77 @@ app.get('/api/usuarios', (req, res) => {
     });
 });
 
+// Ruta de actualización del perfil del usuario
+app.put('/api/usuario/:id', (req, res) => {
+    const { nombre, apellido, correo_electronico, usuario, contrasena } = req.body;
+
+    const updates = {
+        nombre,
+        apellido,
+        correo_electronico,
+        usuario,
+    };
+
+    // Solo agrega la contraseña a los updates si se proporcionó una nueva
+    if (contrasena) {
+        // Considera agregar aquí la lógica para hashear la contraseña antes de guardarla
+        updates.contrasena = contrasena;
+    }
+
+    const sql = 'UPDATE Usuarios SET ? WHERE usuario_id = ?';
+    db.query(sql, [updates, req.params.id], (error, results) => {
+        if (error) throw error;
+        res.send('Usuario actualizado con éxito.');
+    });
+});
+
+//borrado
+app.delete('/api/usuarioDel/:usuario_id', (req, res) => {
+    const { usuario_id } = req.params;
+
+    const deleteQueries = [
+        'DELETE FROM Mensajes WHERE sender_id = ? OR receiver_id = ?',
+        'DELETE FROM Valoraciones_Resenas WHERE usuario_id = ?',
+        'DELETE FROM Libros WHERE usuario_id = ?',
+        'DELETE FROM Usuarios WHERE usuario_id = ?',
+    ];
+
+    db.beginTransaction(error => {
+        if (error) {
+            console.error('Error al iniciar la transacción:', error);
+            res.status(500).json({ error: 'Hubo un error al iniciar la transacción.' });
+            return;
+        }
+
+        deleteQueries.forEach((query, index) => {
+            db.query(query, [usuario_id, usuario_id], (error, results) => {
+                if (error) {
+                    return db.rollback(() => {
+                        console.error('Error al eliminar:', error);
+                        res.status(500).json({ error: 'Hubo un error al eliminar.' });
+                    });
+                }
+
+                // Si es la última consulta y no hay errores, hacemos commit
+                if (index === deleteQueries.length - 1) {
+                    db.commit(err => {
+                        if (err) {
+                            return db.rollback(() => {
+                                console.error('Error al hacer commit:', error);
+                                res.status(500).json({ error: 'Hubo un error al finalizar la transacción.' });
+                            });
+                        }
+
+                        res.status(200).json({ message: 'Usuario eliminado exitosamente.' });
+                    });
+                }
+            });
+        });
+    });
+});
+
+
+
 
 // Iniciar el servidor
 const PORT = process.env.PORT || 3000;
